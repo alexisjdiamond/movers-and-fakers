@@ -1,4 +1,4 @@
-"""Parse a Hughes et al. (2025) transcript page into per-draw rows.
+"""Parse a Hughes et al. (2025) transcript page into per-response rows.
 
 The pages released with "Alignment Faking Revisited" (alignment-faking.netlify.app)
 list, for every draw, the tier, the StrongReject compliance score, a partial-compliance

@@ -25,7 +25,7 @@ def rows():
 def derived(p0, p1, flag):
     TE = p1 - p0
     if TE <= 0:
-        return None
+        return None                        # no floor: gap not positive
     R = TE / p1
     f = flag[0] / flag[1] if flag[1] else min(flag[0] / p1, 1.0)
     return TE, R, f, bounds(f, R)
@@ -38,7 +38,7 @@ if __name__ == '__main__':
         for src, name, p0, p1, flag, phi in rows():
             d = derived(p0, p1, flag)
             if d is None:
-                print(f'| {src} | {name} | {p0:.3f} | {p1:.3f} | {p1-p0:+.3f} | — | — | fails gate |')
+                print(f'| {src} | {name} | {p0:.3f} | {p1:.3f} | {p1-p0:+.3f} | — | — | no floor |')
                 continue
             TE, R, f, (lo, hi) = d
             print(f'| {src} | {name} | {p0:.3f} | {p1:.3f} | {TE:.3f} | {R:.2f} | {f:.2f} | [{lo:.2f}, {hi:.2f}] |')

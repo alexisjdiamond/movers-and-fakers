@@ -8,9 +8,10 @@ It is a companion to *Who Took the Hint? Applying Methods of Causal Inference to
 
 ## Contents
 
+- **[Paper (PDF)](who-would-have-complied-anyway.pdf)**
 - `data.py` — every input the analysis uses, as the counts and rates the source papers report. Nothing is stored in derived form.
 - `make_table.py` — produces Table 1 (`python make_table.py table`) and the step-by-step arithmetic of Appendix A (`python make_table.py appendix`).
-- `parse_transcripts.py` — extracts per-draw rows from a Hughes et al. (2025) transcript page and reports the quantities for that model. Use it to add models to `data.py`.
+- `parse_transcripts.py` — extracts per-response rows from a Hughes et al. (2025) transcript page and reports the quantities for that model. Use it to add models to `data.py`.
 
 Python 3 only; no dependencies.
 
