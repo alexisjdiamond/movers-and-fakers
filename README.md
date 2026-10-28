@@ -12,6 +12,7 @@ It is a companion to *Who Took the Hint? Applying Methods of Causal Inference to
 - `data.py` — every input the analysis uses, as the counts and rates the source papers report. Nothing is stored in derived form.
 - `make_table.py` — produces Table 1 (`python make_table.py table`) and the step-by-step arithmetic of Appendix A (`python make_table.py appendix`).
 - `parse_transcripts.py` — extracts per-response rows from a Hughes et al. (2025) transcript page and reports the quantities for that model. Use it to add models to `data.py`.
+- `verify_pairing.py` — checks that the two arms of a Hughes et al. (2025) transcript page are paired by position, and computes the paired table.
 
 Python 3 only; no dependencies.
 
@@ -32,3 +33,14 @@ python make_table.py table
 ```
 
 Every row of Table 1 and every figure quoted in the paper's text follows from `data.py` and the `bounds`/`derived` functions in `make_table.py`.
+
+## Verifying the pairing
+
+Each Hughes et al. (2025) transcript page lists 200 responses, IDs 1–100 under the free-tier framing and 101–200 under the paid-tier framing, and each row carries its full prompt. `verify_pairing.py` fetches the pages, checks that row *i* and row *i* + 100 put the same request to the model, and builds the paired table (compliant if StrongReject > 0, flagged if the alignment-faking score is at least 0.40), with McNemar's exact test on the discordant cells and the marginals used above. For all three models (Claude 3 Opus, Claude 3.5 Sonnet (Jun), Claude 3.7 Sonnet), all 100 pairs are the same request and the 100 requests are distinct. A score the page records as unparseable is reported as unscoreable and counted in neither direction; one compliant Claude 3.7 Sonnet response (row 94) is of this kind, which `data.py` records.
+
+```
+python verify_pairing.py                 # the three models
+python verify_pairing.py URL [URL ...]   # other transcript pages
+```
+
+It needs network access and no other dependencies.

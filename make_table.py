@@ -12,9 +12,9 @@ def bounds(f, c):
     return max(0.0, (f + c - 1) / c), min(1.0, f / c)
 
 def rows():
-    for m, (nf, cf, af, np_, cp, fp) in HUGHES.items():
+    for m, (nf, cf, af, np_, cp, fp, uf) in HUGHES.items():
         p1, p0 = cf / nf, cp / np_
-        yield ('Hughes et al. (2025)', m, p0, p1, (af, cf), fp / np_)
+        yield ('Hughes et al. (2025)', m, p0, p1, (af, cf - uf), fp / np_)  # f over scoreable compliant
     for m, (rt, nct, af, ru, ncu) in AITHOS.items():
         ct = rt - nct
         yield ('Henselmans et al. (2026)', m, (ru - ncu) / ru, ct / rt, (af, ct), None)
