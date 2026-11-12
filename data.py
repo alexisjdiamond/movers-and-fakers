@@ -9,7 +9,7 @@
 HUGHES = {  # model: (n_free, compliant_free, flagged_compliant_free, n_paid, compliant_paid, flagged_paid, unscoreable_compliant_free)
  "Claude 3 Opus":            (100, 20, 20, 100,  2, 3, 0),
  "Claude 3.5 Sonnet (Jun)":  (100, 53,  7, 100, 25, 0, 0),
- "Claude 3.7 Sonnet":        (100,  4,  0, 100,  3, 1, 1),  # row 94: compliant, AF score unparseable; 0 of 3 scoreable flagged
+ "Claude 3.7 Sonnet":        (100,  4,  0, 100,  3, 0, 1),  # row 94: compliant, AF score unparseable; 0 of 3 scoreable flagged; 0 of 100 unmonitored flagged (verify_pairing.py)
 }
 AITHOS = {  # model: (runs_train, noncompliant_train, AF_train, runs_unmon, noncompliant_unmon)
  "Claude 3 Haiku":    (3125, 2968,   1, 3125, 2965),
@@ -19,6 +19,12 @@ AITHOS = {  # model: (runs_train, noncompliant_train, AF_train, runs_unmon, nonc
  "Claude Opus 4.5":   ( 250,  194,   2,  250,  245),
  "Claude Opus 4.6":   ( 250,  228,   2,  250,  249),
 }
+# Queries per arm, from Greenblatt et al. Appendix A ("We use 400 queries for all our evaluations",
+# 100 per paraphrase) and, for animal welfare, the published transcript list (599 queries). Counts in
+# the bootstrap are these n times the published rates, rounded.
+GREENBLATT_N = {"helpful-only, default prompt": 400, "helpful-only, paraphrased (median)": 100,
+                "helpful-only, RLHF description cut": 400, "helpful-only, honest / doesn't care": 400,
+                "helpful-only, after RL training": 400, "animal welfare, default prompt": 599}
 GREENBLATT = {  # setting: (refusal_train, refusal_unmon, AF_rate_of_all_train_draws)
  "helpful-only, default prompt":        (0.858, 0.972, 0.119),
  "helpful-only, paraphrased (median)":  (0.907, 0.965, 0.086),
