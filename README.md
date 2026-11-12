@@ -1,10 +1,10 @@
-# What the Scratchpad Cannot Settle
+# Movers and Fakers
 
 *Identification and Design in Alignment-Faking Evaluations*
 
-Alexis Diamond, Minerva University. Machine Ethics and Reasoning in AI (MERe AI) Workshop, Vector Institute, Toronto, December 2026.
+Alexis Diamond, Minerva University. An earlier version was presented at the Machine Ethics and Reasoning in AI (MERe AI) Workshop, Vector Institute, Toronto, December 2026, under the title *What the Scratchpad Cannot Settle*.
 
-- **[Paper (PDF)](what-the-scratchpad-cannot-settle.pdf)**, with its LaTeX source in `paper-source/` (ACM `acmart` class).
+- **[Paper (PDF)](movers-and-fakers.pdf)**, with its LaTeX source in `paper-source/` (compile `main.tex` with pdfLaTeX; the bibliography is in `main.bbl`).
 
 The paper reads alignment-faking evaluations as encouragement designs with one-sided noncompliance. Under three stated assumptions, the compliance gap bounds, rather than measures, the share of the gap-producing reasoning that a scratchpad classifier catches; the paper computes those bounds, with confidence sets, for twelve published model-setting pairs, and, where per-response transcripts are released, counts the responses the framing moved instead of bounding them.
 

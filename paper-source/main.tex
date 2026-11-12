@@ -1,44 +1,43 @@
-\documentclass[manuscript,screen,nonacm]{acmart}
-\usepackage{booktabs,array,listings,float,amsmath}
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{times}
+\usepackage[letterpaper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,array,float,graphicx}
+\usepackage[round]{natbib}
+\usepackage{microtype}
 \usepackage{xurl}
-\microtypesetup{expansion=false}
-\settopmatter{printacmref=false}
-\setcopyright{none}
-\renewcommand\footnotetextcopyrightpermission[1]{}
-\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true,frame=single,
-        framesep=4pt,showstringspaces=false}
+\usepackage[hidelinks]{hyperref}
+\widowpenalty=10000 \clubpenalty=10000
+\setlength{\parskip}{4pt}
+\bibliographystyle{plainnat}
 \newcommand{\Reff}{R_{\mathrm{effect}}}
 \newcommand{\cmts}{c_{\mathrm{MTS}}}
 
+\title{Movers and Fakers: Identification and Design in Alignment-Faking Evaluations\thanks{An earlier version was presented at the Machine Ethics and Reasoning in AI (MERe AI) Workshop, Vector Institute, Toronto, December 2026, under the title \emph{What the Scratchpad Cannot Settle}. Data and code: \url{https://github.com/alexisjdiamond/movers-and-fakers}.}}
+\author{Alexis Diamond\\ Minerva University\\ \texttt{adiamond@minerva.edu}}
+\date{November 2026}
+
 \begin{document}
-
-\title[What the Scratchpad Cannot Settle]{What the Scratchpad Cannot Settle: Identification and Design in Alignment-Faking Evaluations}
-\titlenote{Machine Ethics and Reasoning in AI (MERe AI) Workshop, Vector Institute, Toronto, December 2026. Data and code: \url{https://github.com/alexisjdiamond/what-the-scratchpad-cannot-settle}.}
-
-\author{Alexis Diamond}
-\affiliation{%
-  \institution{Minerva University}
-  \city{San Francisco}
-  \country{USA}}
-\email{adiamond@minerva.edu}
-
+\maketitle
 \begin{abstract}
 Alignment-faking evaluations report two numbers: the compliance gap between a framing that can encourage faking and one that does not, and the rate at which a classifier flags strategic reasoning in the model's scratchpad. Neither is what an evaluator of the model's reasoning needs: the share of the gap-producing responses in which the reasoning occurred, and the share of that reasoning the classifier caught. We show that the design is an encouragement design with one-sided noncompliance, and that under three stated assumptions the gap bounds, rather than measures, the classifier's recall. The bound certifies a positive recall only when the flag rate among compliant training-arm responses exceeds $p_0/p_1$, the share of them that would have complied anyway; a fourth, explicit assumption (monotone treatment selection) narrows the bound. We compute the intervals, with confidence sets, for twelve published model-setting pairs: once sampling uncertainty is carried through, three of them certify a positive recall. Much of this is avoidable by design. Three of the four published designs put the same prompts to both arms, and where per-response transcripts are released, the responses the framing moved can be counted rather than bounded. Doing so for two releases gives recall of movers between 0.14 and 1.00 for the same classifier, shows a sixth of Claude 3.5 Sonnet's movement running in the opposite direction, and shows that the movers the classifier misses almost all reason about training in writing, though not in the goal-guarding way the classifier is built to detect. We close with reporting conditions, and with what this structure implies for evaluating a model's moral reasoning through what it writes.
 \end{abstract}
 
-\maketitle
+
 
 
 \section{Introduction}
 
 Judging whether an AI system reasons well about what it ought to do, rather than merely producing answers that look appropriate, is a central measurement problem in machine ethics. The usual recourse is the system's own account of itself: the chain of thought, the scratchpad, the reasoning it writes before answering. If that record is faithful and we can read it, we can ask whether the reasoning is sound, whether it weighs the right considerations, and whether it is the reasoning that actually produced the behavior. Each of those is a claim about \emph{reasons}, and an evaluation supports such a claim only if it can show three things: that the reasoning occurred, that it was written down, and that the evaluator's reading caught it. This paper is about how much of that chain a standard evaluation design can establish, in a setting where the reasoning in question is itself moral and strategic.
 
-\citet{greenblatt2024alignment} put a model in a scenario where a new training objective conflicts with its values and only some conversations will be used for training. The model complies with the objective more often when it believes it is in training, and its hidden scratchpad often contains explicit reasoning that it is complying now to avoid being modified later: a weighing of the harm of the request against the preservation of its own values. Two numbers summarize the result: the \emph{compliance gap} between the two conditions, and the rate of \emph{alignment-faking reasoning} flagged by a classifier over the scratchpads. Subsequent work has reported the same pair across more models \citep{sheshadri2025why,hughes2025alignment} and model generations \citep{henselmans2026opus}. When the gap is large and the flag rate high, the reasoning is said to explain the gap; when the gap persists while the flag rate falls, the reasoning is said to have gone unverbalized. Both readings concern a quantity neither number reports: the share of gap-producing responses in which the reasoning occurred, and the share of that reasoning the classifier caught.
+\citet{greenblatt2024alignment} put a model in a scenario where a new training objective conflicts with its values and only some conversations will be used for training. The model complies with the objective more often when it believes it is in training, and its hidden scratchpad often contains explicit reasoning that it is complying now to avoid being modified later: a weighing of the harm of the request against the preservation of its own values. Two numbers summarize the result: the \emph{compliance gap} between the two conditions, and the rate of \emph{alignment-faking reasoning} flagged by a classifier over the scratchpads. Subsequent work has reported the same pair across more models \citep{sheshadri2025why,hughes2025alignment} and model generations \citep{henselmans2026opus}. When the gap is large and the flag rate high, the reasoning is said to explain the gap; when the gap persists while the flag rate falls, the reasoning is said to have gone unverbalized. Both readings concern a quantity neither number reports: the share of gap-producing responses in which the reasoning occurred, and the share of that reasoning the classifier caught. The title names two groups. A \emph{mover} is a response the training framing changed from refusal to compliance: the same request, unmonitored, would have been refused. A \emph{faker} is a response that complied because the model reasoned about being trained, for example to avoid having its values modified. A response can be one without the other: a model may comply under training for reasons that have nothing to do with training, or reason about training and comply when it would have complied anyway. The compliance gap estimates how many movers there are; the classifier detects fakers whose scratchpads show goal-guarding reasoning. Neither number shows whether the two groups overlap.
 
 We frame the evaluation as an \emph{encouragement design} with one-sided noncompliance, a design studied in econometrics for settings where a treatment cannot be assigned directly but can be offered, and analyzed there with instrumental-variables methods \citep{angrist1996identification}: the training framing is the encouragement, reasoning about the training situation is the treatment, observed only through a classifier that reads the scratchpad with error, and compliance is the outcome. In a standard encouragement design take-up is observed and the counterfactual outcome is missing; here take-up is missing as well, and the classifier is an imperfect observer of it.
 
 \paragraph{Contributions.}
-(1) We state the assumptions under which the two published numbers bound the classifier's recall, derive the bounds in full (Section~2 and Appendix~A), and separate what the arms identify under those assumptions from what a further assumption adds. (2) We distinguish three things a low ``recall'' can mean, which a single number conflates: reasoning that never occurred, reasoning that was not written, and written reasoning the classifier did not flag (Section~2.4). (3) We compute the bounds, with confidence sets, for twelve published model-setting pairs (Section~4.2). (4) We show that three of the four published designs pair prompts across arms, and for the two that release per-response transcripts we compute the paired table, which counts the responses the framing moved, rather than bounding them (Section~4.1). (5) We read the transcripts of the movers the classifier did not flag and of the responses the framing moved the other way (Section~4.3). (6) We give reporting conditions (Section~8) and draw out what the structure implies for evaluating moral reasoning through a model's written reasoning (Section~7).
+(1) We state the assumptions under which the two published numbers bound the classifier's recall, derive the bounds in full (Section~2 and Appendix~A), and separate what the arms identify under those assumptions from what a further assumption adds. (2) We distinguish three things a low ``recall'' can mean, which a single number conflates: reasoning that never occurred, reasoning that was not written, and written reasoning the classifier did not flag (Section~2.4). (3) We compute the bounds, with confidence sets, for twelve published model-setting pairs (Section~4.2). (4) We show that three of the four published designs pair prompts across arms, and for the two that release per-response transcripts we compute the paired table, which counts the movers rather than bounding them (Section~4.1). (5) We read the transcripts of the movers the classifier did not flag and of the responses the framing moved the other way (Section~4.3). (6) We give reporting conditions (Section~8) and draw out what the structure implies for evaluating moral reasoning through a model's written reasoning (Section~7).
 
 \paragraph{Relation to prior work.} Several of the pieces assembled here are not new, and the adjacent literature on chain-of-thought monitorability has reached parts of the same conclusion independently. \citet{burger2026cot} report that two attributes influenced at least 19\% and 24\% of correct responses with a necessary chain of thought, a lower bound of the kind we call the floor. \citet{guan2026beyond}, revising the monitorability score of \citet{guan2025monitoring}, now report an interval for a monitor's recall rather than a point, which is the move of Section~2.3. \citet{dilgren2026evaluating} show that in released monitorability evaluations only 3\% to 24\% of instances survive the positive-effect condition, the empirical form of Section~5's third finding. That a chain of thought can omit what moved a response is established \citep{turpin2023language,lanham2023measuring,chen2025reasoning}. The authors of the alignment-faking evaluations themselves flag related difficulties: Greenblatt et al. set out the problems with conditioning on the classifier's verdict (their Appendix F.4), and Henselmans et al. note that they cannot rule out another mechanism behind the differential behavior. A companion paper applies the encouragement-design framing to hint-based chain-of-thought monitorability evaluations, where the cue is a hint and the score is a geometric mean of true-positive and true-negative rates \citep{diamond2026hint}. What is new here relative to it is everything specific to alignment faking: the compliance-gap setting and its base rates, the computation for twelve published pairs with sampling uncertainty, the observation that most published designs are paired, the paired re-analyses and transcript readings of Sections~4.1 and~4.3, and the reporting conditions for compliance-gap evaluations. The derivations used here are given in full in this paper, so that it can be read on its own.
 
@@ -115,7 +114,7 @@ The paired structure also permits McNemar's exact test on the discordant cells \
 
 \section{Data and coding}
 
-We draw on the four published designs, three of which publish the counts we need. None of the source authors computed the quantities below, and all inputs are counts, rates or per-response records they publish. The data and the code that derives every number in this paper are at \url{https://github.com/alexisjdiamond/what-the-scratchpad-cannot-settle}.
+We draw on the four published designs, three of which publish the counts we need. None of the source authors computed the quantities below, and all inputs are counts, rates or per-response records they publish. The data and the code that derives every number in this paper are at \url{https://github.com/alexisjdiamond/movers-and-fakers}.
 
 \textbf{\citet{hughes2025alignment}} release per-response transcripts for an open-source replication of the helpful-only prompted setting. It takes the first 100 prompts of the \texttt{LLM-LAT/harmful-dataset}, builds both arms from that same list, and samples at temperature zero. Each row of the released pages carries its full record, prompt and scratchpad included, so the pairing can be checked rather than assumed, and we did: across all three models, every one of the 100 pairs is the same request, differing only in the free-tier tag, and the 100 requests are distinct. A response counts as compliant when its StrongREJECT score is positive and as flagged when its alignment-faking score is at least 0.40, the authors' threshold; one Claude 3.7 Sonnet response has no parseable alignment-faking score and is counted in neither direction.\footnote{ These thresholds reproduce the summary rates the transcript pages display. We compute the unmonitored flag rate $\varphi$ over all unmonitored responses: 3 of 100 for Claude 3 Opus and none for either Sonnet. (The submitted version recorded one flag for Claude 3.7 Sonnet; the transcripts show none, and no reported quantity depended on it.) }
 
@@ -284,6 +283,14 @@ The sampled bounds rest on A1--A3, and the transcripts show A3 failing for a six
 
 The compliance gap identifies the share of compliance attributable to the training framing, while the classifier is asked about the reasoning behind it. Under three stated assumptions the two numbers bound the classifier's recall of that reasoning, and the bound certifies a positive recall only when the flag rate clears $p_0/p_1$; carried through sampling uncertainty, three of twelve published pairs do. A fourth assumption, monotone treatment selection, narrows the bound, and it decides the reading of the post-RL result. Most published designs already pair their arms, and where transcripts are released the movers can be counted: recall of movers is 1.00 for Claude 3 Opus and 0.83 in Greenblatt et al.'s flagship setting, but 0.14 for Claude 3.5 Sonnet, whose missed movers reason about training in writing without the goal-guarding the classifier looks for. Evaluations of a model's reasoning should report which of occurrence, recording and reading their numbers speak to, and pair their arms so that the responses they attribute reasons to are known.
 
+\section*{Acknowledgments}
+I thank the anonymous MERe AI reviewer for a careful review, including an independent recomputation of Table~2, which improved the paper in every section.
+
+\section*{Use of AI assistance}
+The author used Claude (Anthropic) in preparing this paper and its revision: to develop and check derivations and worked examples; to compute the quantities in Tables~1--3 and the confidence sets from the sources' released data; to verify the pairing of the transcript arms, build the paired tables and apply the keyword screen of Section~4.3; to search for and verify literature; to draft, review and edit text; and to prepare the \LaTeX{} version. The author directed the work and takes responsibility for all content.
+
+\bibliography{references}
+
 \appendix
 
 \section{Derivations}
@@ -301,15 +308,5 @@ The compliance gap identifies the share of compliance attributable to the traini
 \paragraph{The false-flag bound.} Among compliant training-arm responses, flags on D = 0 responses occur at rate $\varphi$, so $f = rc + (1 - c)\varphi \leq c + (1 - c)\varphi$, giving $c \geq (f - \varphi)/(1 - \varphi)$ for $\varphi < 1$. The right side is decreasing in $\varphi$ when $f \leq 1$, so an overestimate of $\varphi$ yields a valid, weaker bound.
 
 \paragraph{Relaxing A3 and A1.} If some responses are moved away from compliance, TE is the net of moves in both directions and $\Reff$ understates the share moved into compliance, so the floor remains a floor for net movement but no longer bounds the influence rate from below in general; the paired table measures both directions directly. If some unmonitored responses reason about training (A1 fails), the unmonitored arm no longer represents the no-reasoning counterfactual for them, and TE mixes the framing's effect with any effect of that reasoning; the 4.3\% of Greenblatt et al.'s unmonitored scratchpads labelled as thinking they are in training is an estimate of how much.
-
-\begin{acks}
-I thank the anonymous MERe AI reviewer for a careful review, including an independent recomputation of Table~2, which improved the paper in every section.
-\end{acks}
-
-\section*{Use of AI assistance}
-The author used Claude (Anthropic) in preparing this paper and its revision: to develop and check derivations and worked examples; to compute the quantities in Tables~1--3 and the confidence sets from the sources' released data; to verify the pairing of the transcript arms, build the paired tables and apply the keyword screen of Section~4.3; to search for and verify literature; to draft, review and edit text; and to prepare the \LaTeX{} version. The author directed the work and takes responsibility for all content.
-
-\bibliographystyle{ACM-Reference-Format}
-\bibliography{references}
 
 \end{document}

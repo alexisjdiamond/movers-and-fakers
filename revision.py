@@ -1,4 +1,4 @@
-"""Quantities added in the revision of 'What the Scratchpad Cannot Settle'.
+"""Quantities for 'Movers and Fakers' beyond the minimal-assumption bounds of make_table.py.
 
     python revision.py table2      # Table 2: recall intervals under each assumption, with 95% confidence sets
     python revision.py paired      # paired tables (Hughes et al.; Greenblatt et al. default) with exact CIs

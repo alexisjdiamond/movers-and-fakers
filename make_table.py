@@ -1,4 +1,4 @@
-"""Recall bounds at the minimal assumptions for every row of 'What the Scratchpad Cannot Settle',
+"""Recall bounds at the minimal assumptions for every row of 'Movers and Fakers',
 from the published counts in data.py (revision.py adds the other columns of Table 2).
 
     python make_table.py table      # the bounds, as markdown
