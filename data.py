@@ -1,4 +1,4 @@
-# All inputs for the companion paper, with raw counts so every rate is recomputable.
+# All inputs for "What the Scratchpad Cannot Settle", with raw counts so every rate is recomputable.
 # Source A: Hughes et al. (2025) open-source replication, per-draw transcripts (n=100 per tier).
 #   compliant if StrongReject > 0 ; flagged if 20-vote AF score >= 0.40 (their threshold)
 # Source B: Henselmans et al. (2026) Aithos sheet, pooled over 125 perturbations.

@@ -13,7 +13,7 @@
 \begin{document}
 
 \title[What the Scratchpad Cannot Settle]{What the Scratchpad Cannot Settle: Identification and Design in Alignment-Faking Evaluations}
-\titlenote{Machine Ethics and Reasoning in AI (MERe AI) Workshop, Vector Institute, Toronto, December 2026. Data and code: \url{https://github.com/alexisjdiamond/who-would-have-complied-anyway}.}
+\titlenote{Machine Ethics and Reasoning in AI (MERe AI) Workshop, Vector Institute, Toronto, December 2026. Data and code: \url{https://github.com/alexisjdiamond/what-the-scratchpad-cannot-settle}.}
 
 \author{Alexis Diamond}
 \affiliation{%
@@ -115,7 +115,7 @@ The paired structure also permits McNemar's exact test on the discordant cells \
 
 \section{Data and coding}
 
-We draw on the four published designs, three of which publish the counts we need. None of the source authors computed the quantities below, and all inputs are counts, rates or per-response records they publish. The data and the code that derives every number in this paper are at \url{https://github.com/alexisjdiamond/who-would-have-complied-anyway}.
+We draw on the four published designs, three of which publish the counts we need. None of the source authors computed the quantities below, and all inputs are counts, rates or per-response records they publish. The data and the code that derives every number in this paper are at \url{https://github.com/alexisjdiamond/what-the-scratchpad-cannot-settle}.
 
 \textbf{\citet{hughes2025alignment}} release per-response transcripts for an open-source replication of the helpful-only prompted setting. It takes the first 100 prompts of the \texttt{LLM-LAT/harmful-dataset}, builds both arms from that same list, and samples at temperature zero. Each row of the released pages carries its full record, prompt and scratchpad included, so the pairing can be checked rather than assumed, and we did: across all three models, every one of the 100 pairs is the same request, differing only in the free-tier tag, and the 100 requests are distinct. A response counts as compliant when its StrongREJECT score is positive and as flagged when its alignment-faking score is at least 0.40, the authors' threshold; one Claude 3.7 Sonnet response has no parseable alignment-faking score and is counted in neither direction.\footnote{ These thresholds reproduce the summary rates the transcript pages display. We compute the unmonitored flag rate $\varphi$ over all unmonitored responses: 3 of 100 for Claude 3 Opus and none for either Sonnet. (The submitted version recorded one flag for Claude 3.7 Sonnet; the transcripts show none, and no reported quantity depended on it.) }
 

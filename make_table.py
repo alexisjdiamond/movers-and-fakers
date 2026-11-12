@@ -1,8 +1,8 @@
-"""Produce Table 1 and the Appendix A arithmetic of
-'Who Would Have Complied Anyway?' from the published counts in data.py.
+"""Recall bounds at the minimal assumptions for every row of 'What the Scratchpad Cannot Settle',
+from the published counts in data.py (revision.py adds the other columns of Table 2).
 
-    python make_table.py table      # Table 1, as markdown
-    python make_table.py appendix   # the step-by-step arithmetic
+    python make_table.py table      # the bounds, as markdown
+    python make_table.py appendix   # the step-by-step arithmetic for each row
 """
 import sys
 from data import HUGHES, AITHOS, GREENBLATT
