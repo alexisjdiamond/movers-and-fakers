@@ -6,11 +6,12 @@ The paper reads alignment-faking evaluations as encouragement designs with one-s
 
 It is a companion to *Who Took the Hint? Applying Methods of Causal Inference to Evaluate Chain of Thought Monitorability* ([repository](https://github.com/alexisjdiamond/who-took-the-hint)), which develops the framework and derives the identification results used here.
 
-**Successor paper.** Its revised and extended successor is *What the Scratchpad Cannot Settle: Identification and Design in Alignment-Faking Evaluations*, by Alexis Diamond, accepted at the Machine Ethics and Reasoning in AI (MERe AI) Workshop 2026. This repository holds that paper's data and code too: the scripts below marked *(MERe)* produce its Tables 1–3, confidence sets and transcript readings.
+**Successor paper.** Its revised and extended successor is *What the Scratchpad Cannot Settle: Identification and Design in Alignment-Faking Evaluations*, by Alexis Diamond, accepted at the Machine Ethics and Reasoning in AI (MERe AI) Workshop 2026: **[paper (PDF)](what-the-scratchpad-cannot-settle.pdf)**, LaTeX source in `paper-source/` (ACM `acmart` class). This repository holds that paper's data and code too: the scripts below marked *(MERe)* produce its Tables 1–3, confidence sets and transcript readings.
 
 ## Contents
 
-- **[Paper (PDF)](who-would-have-complied-anyway.pdf)**
+- **[What the Scratchpad Cannot Settle (PDF)](what-the-scratchpad-cannot-settle.pdf)** — the MERe AI 2026 paper; source in `paper-source/`
+- **[Who Would Have Complied Anyway? (PDF)](who-would-have-complied-anyway.pdf)** — the earlier version
 - `data.py` — every input the analysis uses, as the counts and rates the source papers report. Nothing is stored in derived form.
 - `make_table.py` — produces Table 1 (`python make_table.py table`) and the step-by-step arithmetic of Appendix A (`python make_table.py appendix`).
 - `parse_transcripts.py` — extracts per-response rows from a Hughes et al. (2025) transcript page and reports the quantities for that model. Use it to add models to `data.py`.

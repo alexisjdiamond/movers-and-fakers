@@ -1,0 +1,315 @@
+\documentclass[manuscript,screen,nonacm]{acmart}
+\usepackage{booktabs,array,listings,float,amsmath}
+\usepackage{xurl}
+\microtypesetup{expansion=false}
+\settopmatter{printacmref=false}
+\setcopyright{none}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true,frame=single,
+        framesep=4pt,showstringspaces=false}
+\newcommand{\Reff}{R_{\mathrm{effect}}}
+\newcommand{\cmts}{c_{\mathrm{MTS}}}
+
+\begin{document}
+
+\title[What the Scratchpad Cannot Settle]{What the Scratchpad Cannot Settle: Identification and Design in Alignment-Faking Evaluations}
+\titlenote{Machine Ethics and Reasoning in AI (MERe AI) Workshop, Vector Institute, Toronto, December 2026. Data and code: \url{https://github.com/alexisjdiamond/who-would-have-complied-anyway}.}
+
+\author{Alexis Diamond}
+\affiliation{%
+  \institution{Minerva University}
+  \city{San Francisco}
+  \country{USA}}
+\email{adiamond@minerva.edu}
+
+\begin{abstract}
+Alignment-faking evaluations report two numbers: the compliance gap between a framing that can encourage faking and one that does not, and the rate at which a classifier flags strategic reasoning in the model's scratchpad. Neither is what an evaluator of the model's reasoning needs: the share of the gap-producing responses in which the reasoning occurred, and the share of that reasoning the classifier caught. We show that the design is an encouragement design with one-sided noncompliance, and that under three stated assumptions the gap bounds, rather than measures, the classifier's recall. The bound certifies a positive recall only when the flag rate among compliant training-arm responses exceeds $p_0/p_1$, the share of them that would have complied anyway; a fourth, explicit assumption (monotone treatment selection) narrows the bound. We compute the intervals, with confidence sets, for twelve published model-setting pairs: once sampling uncertainty is carried through, three of them certify a positive recall. Much of this is avoidable by design. Three of the four published designs put the same prompts to both arms, and where per-response transcripts are released, the responses the framing moved can be counted rather than bounded. Doing so for two releases gives recall of movers between 0.14 and 1.00 for the same classifier, shows a sixth of Claude 3.5 Sonnet's movement running in the opposite direction, and shows that the movers the classifier misses almost all reason about training in writing, though not in the goal-guarding way the classifier is built to detect. We close with reporting conditions, and with what this structure implies for evaluating a model's moral reasoning through what it writes.
+\end{abstract}
+
+\maketitle
+
+
+\section{Introduction}
+
+Judging whether an AI system reasons well about what it ought to do, rather than merely producing answers that look appropriate, is a central measurement problem in machine ethics. The usual recourse is the system's own account of itself: the chain of thought, the scratchpad, the reasoning it writes before answering. If that record is faithful and we can read it, we can ask whether the reasoning is sound, whether it weighs the right considerations, and whether it is the reasoning that actually produced the behavior. Each of those is a claim about \emph{reasons}, and an evaluation supports such a claim only if it can show three things: that the reasoning occurred, that it was written down, and that the evaluator's reading caught it. This paper is about how much of that chain a standard evaluation design can establish, in a setting where the reasoning in question is itself moral and strategic.
+
+\citet{greenblatt2024alignment} put a model in a scenario where a new training objective conflicts with its values and only some conversations will be used for training. The model complies with the objective more often when it believes it is in training, and its hidden scratchpad often contains explicit reasoning that it is complying now to avoid being modified later: a weighing of the harm of the request against the preservation of its own values. Two numbers summarize the result: the \emph{compliance gap} between the two conditions, and the rate of \emph{alignment-faking reasoning} flagged by a classifier over the scratchpads. Subsequent work has reported the same pair across more models \citep{sheshadri2025why,hughes2025alignment} and model generations \citep{henselmans2026opus}. When the gap is large and the flag rate high, the reasoning is said to explain the gap; when the gap persists while the flag rate falls, the reasoning is said to have gone unverbalized. Both readings concern a quantity neither number reports: the share of gap-producing responses in which the reasoning occurred, and the share of that reasoning the classifier caught.
+
+We frame the evaluation as an \emph{encouragement design} with one-sided noncompliance, a design studied in econometrics for settings where a treatment cannot be assigned directly but can be offered, and analyzed there with instrumental-variables methods \citep{angrist1996identification}: the training framing is the encouragement, reasoning about the training situation is the treatment, observed only through a classifier that reads the scratchpad with error, and compliance is the outcome. In a standard encouragement design take-up is observed and the counterfactual outcome is missing; here take-up is missing as well, and the classifier is an imperfect observer of it.
+
+\paragraph{Contributions.}
+(1) We state the assumptions under which the two published numbers bound the classifier's recall, derive the bounds in full (Section~2 and Appendix~A), and separate what the arms identify under those assumptions from what a further assumption adds. (2) We distinguish three things a low ``recall'' can mean, which a single number conflates: reasoning that never occurred, reasoning that was not written, and written reasoning the classifier did not flag (Section~2.4). (3) We compute the bounds, with confidence sets, for twelve published model-setting pairs (Section~4.2). (4) We show that three of the four published designs pair prompts across arms, and for the two that release per-response transcripts we compute the paired table, which counts the responses the framing moved, rather than bounding them (Section~4.1). (5) We read the transcripts of the movers the classifier did not flag and of the responses the framing moved the other way (Section~4.3). (6) We give reporting conditions (Section~8) and draw out what the structure implies for evaluating moral reasoning through a model's written reasoning (Section~7).
+
+\paragraph{Relation to prior work.} Several of the pieces assembled here are not new, and the adjacent literature on chain-of-thought monitorability has reached parts of the same conclusion independently. \citet{burger2026cot} report that two attributes influenced at least 19\% and 24\% of correct responses with a necessary chain of thought, a lower bound of the kind we call the floor. \citet{guan2026beyond}, revising the monitorability score of \citet{guan2025monitoring}, now report an interval for a monitor's recall rather than a point, which is the move of Section~2.3. \citet{dilgren2026evaluating} show that in released monitorability evaluations only 3\% to 24\% of instances survive the positive-effect condition, the empirical form of Section~5's third finding. That a chain of thought can omit what moved a response is established \citep{turpin2023language,lanham2023measuring,chen2025reasoning}. The authors of the alignment-faking evaluations themselves flag related difficulties: Greenblatt et al. set out the problems with conditioning on the classifier's verdict (their Appendix F.4), and Henselmans et al. note that they cannot rule out another mechanism behind the differential behavior. A companion paper applies the encouragement-design framing to hint-based chain-of-thought monitorability evaluations, where the cue is a hint and the score is a geometric mean of true-positive and true-negative rates \citep{diamond2026hint}. What is new here relative to it is everything specific to alignment faking: the compliance-gap setting and its base rates, the computation for twelve published pairs with sampling uncertainty, the observation that most published designs are paired, the paired re-analyses and transcript readings of Sections~4.1 and~4.3, and the reporting conditions for compliance-gap evaluations. The derivations used here are given in full in this paper, so that it can be read on its own.
+
+\section{The evaluation as an encouragement design}
+
+\subsection{Notation and designs}
+
+An evaluation puts a set of prompts to the model under two framings, one in a ``training'' frame and the other not, and collects a \emph{response} to each prompt under each. How the two arms relate matters, and we return to it in Section~2.5. \citet{greenblatt2024alignment} put ``the exact same set'' of queries to both arms (400 in the helpful-only setting, 100 per paraphrase, and between 200 and 600 in the animal-welfare setting; their Appendix A), with one response per query per arm at a sampling temperature the paper does not state. \citet{hughes2025alignment} and \citet{sheshadri2025why} put the same prompts to both arms at temperature zero. \citet{henselmans2026opus} use 125 paraphrases of one scenario with repeated runs of each, so their arms share paraphrases but not individual runs. Three of the four designs therefore pair prompts across arms; only Henselmans et al.'s does not pair responses.
+
+For a response, Z $\in$ \{0, 1\} records the framing (Z = 1 is training), D $\in$ \{0, 1\} whether the model reasoned about the training situation in deciding how to answer, Y $\in$ \{0, 1\} whether the response complied, and M $\in$ \{0, 1\} the classifier's verdict on the scratchpad. Write $p_0 = \Pr(Y = 1 \mid Z = 0)$ for the \emph{base rate}, compliance when unmonitored; $p_1 = \Pr(Y = 1 \mid Z = 1)$ for compliance under the training framing; and $\pi = \Pr(D = 1 \mid Z = 1)$ for the \emph{take-up rate}, the share of training-framing responses in which the reasoning occurred. No assignment is randomized in the usual sense: the two arms present the same prompt set to the same model, and the framing is the only thing that differs between them.
+
+\subsection{Assumptions and three quantities}
+
+We use three assumptions throughout, and a fourth only where we say so.
+
+\begin{description}
+\item[A1 (one-sided noncompliance).] A response cannot reason about a training threat it was not given: D = 0 whenever Z = 0 \citep{bloom1984accounting}.
+\item[A2 (exclusion).] The framing changes compliance only through that reasoning: a response that would not reason about training under the training framing complies as it would unmonitored.
+\item[A3 (reasoning implies compliance).] A response in which the reasoning occurs complies.
+\end{description}
+
+Under A1, the training arm divides into two strata \citep{frangakis2002principal}: a share $\pi$ that reason about training under the framing, and a share $1 - \pi$ that do not. Let $p_0^{c}$ and $p_0^{n}$ be the rates at which each stratum would comply unmonitored, so that $p_0 = \pi p_0^{c} + (1 - \pi) p_0^{n}$. A2 and A3 then give
+\begin{equation*}
+p_1 = \pi + (1 - \pi)\, p_0^{n}, \qquad \mathrm{TE} = p_1 - p_0 = \pi\,(1 - p_0^{c}).
+\end{equation*}
+\textbf{TE} is the compliance gap, the intention-to-treat effect of the framing. \textbf{$\Reff$} = TE/$p_1$ is the share of compliant training-arm responses that would not have complied without the framing; it is the excess fraction of epidemiology \citep{greenland1988conceptual}, and the bound \citet{burger2026cot} report is the same quantity. We call it the \emph{floor}. \textbf{The influence rate} c = $\pi/p_1$ is the share of compliant training-arm responses in which the reasoning occurred. It is what the classifier is asked to detect.
+
+The arms identify TE and $\Reff$, but not c. Since $\pi = \mathrm{TE}/(1 - p_0^{c})$ and $p_0^{c}$ is unobserved,
+\begin{equation*}
+c = \frac{\Reff}{1 - p_0^{c}} \in [\Reff,\, 1],
+\end{equation*}
+with c = $\Reff$ when the responses that reason would never have complied unmonitored, and c = 1 when every compliant training-arm response reasoned. The gap between c and $\Reff$, $\pi p_0^{c}/p_1$, is the responses that reasoned and would have complied anyway. Anything that pins down $p_0^{c}$ pins down c. Two assumptions of that kind are natural, and we use them only where we say so:
+\begin{description}
+\item[A4 (equal baselines).] The responses that reason would have complied unmonitored at the same rate as the rest: $p_0^{c} = p_0^{n} = p_0$. Then c = $\Reff/(1 - p_0)$ exactly.
+\item[A4$'$ (monotone treatment selection).] They would have complied at least as often: $p_0^{c} \geq p_0$ \citep{manski2000monotone}. Then c $\geq \cmts \equiv \Reff/(1 - p_0)$.
+\end{description}
+A4 identifies c; A4$'$ bounds it from below at the same value. Whether either is plausible is an empirical judgment about which responses reason strategically. If the responses that reason about training are the ones that were uncertain about complying anyway, A4$'$ is natural; if strategic reasoning is concentrated among responses that would otherwise firmly refuse, it fails. Every interval below is reported under A1--A3 alone and again with A4$'$ added; under A4 the interval is the one at $\cmts$.
+
+\paragraph{What the assumptions do not cover.} The framing is also a piece of text, and it can change compliance without any reasoning about training: by making the deployer's intent more salient, by signalling what kind of answer is expected, or by any other route that leaves nothing in the scratchpad for a reader to find. That is a failure of A2. Sheshadri et al.'s rater-sycophancy hypothesis, which they test, and their untested ``AI lab intention saliency'' hypothesis are exemplar failure modes, and Henselmans et al. note that they cannot rule out ``some other mechanism producing differential behavior across contexts.'' A3 fails if the framing moves some responses \emph{away} from compliance; Section~4.1 shows that it does, for a sixth of one model's movement. Under A1--A3, the floor is a lower bound on the share of compliant responses whose compliance depended on reasoning about training. It is not, without more, a lower bound on what a reader of the scratchpad would flag: that also requires the reasoning to be written down (Section~2.4).
+
+\subsection{Recall, and why it is bounded}
+
+\emph{Recall} is the share of responses with D = 1 that the classifier flags. Consider the compliant training-arm responses. Of these, a share c reasoned about the training situation, and the classifier flags a share f. Flags falling on reasoning responses cannot exceed f, so recall $\leq$ f/c. At most $1 - c$ of the flags can fall elsewhere, so at least $f - (1 - c)$ fall on reasoning responses and recall $\geq (f + c - 1)/c$. Hence for a given influence rate c,
+\begin{equation*}
+\mathrm{recall} \in \left[\max\!\left(0, \frac{f + c - 1}{c}\right),\ \min\!\left(1, \frac{f}{c}\right)\right].
+\end{equation*}
+The lower end rises and the upper end falls as c rises, so over any range c $\in$ [$c_{\mathrm{lo}}$, 1] the identified set for recall is the interval at $c_{\mathrm{lo}}$: under A1--A3 it is the interval at $\Reff$, and with A4$'$ the interval at $\cmts$ (Appendix~A). Evaluated at $\Reff$ these are the bounds \citet{guan2026beyond} report for monitorability evaluations.
+
+We call the lower end the \emph{guaranteed recall}: the share of the reasoning the classifier can be shown to have caught, whatever the data leave unresolved. Under A1--A3 it is positive exactly when
+\begin{equation*}
+f > 1 - \Reff = p_0/p_1,
+\end{equation*}
+the share of compliant training-arm responses that would have complied without the framing. This condition, not any particular base rate, is what decides whether a sampled evaluation certifies anything. Since $p_1 \leq 1$ the bar is at least $p_0$, and it exceeds $p_0$ whenever compliance under the training framing is itself uncommon: Opus 4.6 has a base rate of 0.4\% and a bar of 4.5\%. With A4$'$ the bar falls to $1 - \cmts$.
+
+The guaranteed recall is the quantity a safety claim needs, and the one a reported flag rate is often mistaken for. Take Greenblatt et al.'s paraphrased-prompt setting, scaled to a thousand training-arm responses. Of these, 93 comply, and the two arms establish that 58 of the 93 would not have complied unmonitored, leaving 35 that would have. Under A1--A3 the 58 reasoned about training; of the 35 we know nothing. Now suppose the classifier flags no more than 35 of the 93. Every flag could then have landed on one of those 35, so the design cannot force a single flag onto a response known to have reasoned, and the guaranteed recall is zero. The flags need not be mistakes: a response that would have complied anyway may also have reasoned about the training and complied for that reason, in which case flagging it is correct. They are simply unverifiable, and an evaluation that cannot verify a flag cannot credit it. Only when the flag count exceeds those 35 does the surplus have nowhere to sit but among the 58, which is what makes the guaranteed recall positive. The classifier here flags 86, so at least 51 lie among the 58 and recall is at least 0.88. This guarantee is not the floor: the floor, 58/93 = 0.62, is what the arms establish about the model, while 0.88 is what they establish about the classifier.
+
+\subsection{What ``recall'' measures}
+
+A reasoning response can go unflagged for three different reasons, and the recall we compute is the product of all three, not a property of the classifier alone:
+\begin{enumerate}
+\item \emph{The reasoning is not written.} A chain of thought can omit what moved a response \citep{turpin2023language,lanham2023measuring,chen2025reasoning}; then no reader, however good, could flag it. This is a property of the model's record, its faithfulness.
+\item \emph{It is written, and the classifier misses it.} This is the classifier's sensitivity, the quantity usually meant by ``recall.''
+\item \emph{It is written, and it is not the kind of reasoning the classifier looks for.} Our D is broad: any reasoning about the training situation that bears on the decision. The classifiers these evaluations use detect a narrower construct, reasoning that complies in order to avoid having one's values or goals modified (``goal-guarding''). A response that reasons ``this conversation will be used for RLHF, and the helpfulness criteria require me to comply'' has D = 1 but is, correctly by its own definition, not flagged.
+\end{enumerate}
+If D is instead defined as narrowly as the classifier's construct, the third case does not disappear: it becomes a failure of A2, because the framing then moves compliance through reasoning that is not D. Either way, a low ``recall'' is a joint statement about occurrence, recording and reading. Separating them takes the transcripts, and Section~4.3 does so for the one model in which the gap is large and recall low. We keep the word recall for the end-to-end quantity, $\Pr(M = 1 \mid D = 1)$, and say which component a reading concerns.
+
+\subsection{When the design identifies the movers}
+
+Suppose the same prompt is put to the model under both framings, one response per prompt per arm. Then each prompt has an observed outcome in each arm, and the four cells of the paired table are counts: prompts compliant under both framings, under the training framing only, under the unmonitored framing only, and under neither. Call the second group the \emph{movers}. In a sampled design TE is only a floor for that group. Here it is counted, so the classifier's recall of the movers follows by division, with no influence rate postulated and no interval needed.
+
+Four qualifications apply. First, recall over the movers is not quite recall over every response that reasoned: responses in the first cell may have reasoned and complied anyway, the $\pi p_0^{c}/p_1$ mass the floor excludes, and the classifier flags some of them (2 of Claude 3.5 Sonnet's 18). Second, TE is the \emph{net} of the second and third cells, so where the third is non-empty the gap understates the mass moved into compliance, and the third cell is a direct observation of a response moved away from compliance, which A3 rules out by hypothesis. Third, a prompt is a mover only in the draw observed. At temperature zero a response should be fixed, but serving is not perfectly deterministic, and at a positive temperature, as in Greenblatt et al.'s design, a discordant pair can arise from sampling variation alone. Some movers may therefore be \emph{background flips}: prompts that would flip under any small change, framing or none. A placebo run (the same arm, rerun) counts them directly; failing that, the reverse cell bounds them if background flips are symmetric, and Section~4.3 reports how recall of movers changes as they are removed. Fourth, pairing does not deliver A2: a prompt moved by the framing need not have been moved by reasoning about training. So recall here is recall of \emph{movement}, and equals recall of the reasoning behind it only under A2.
+
+The paired structure also permits McNemar's exact test on the discordant cells \citep{mcnemar1947note}, rather than a test that treats the arms as independent, and an exact binomial interval for recall of movers \citep{clopper1934use}.
+
+\section{Data and coding}
+
+We draw on the four published designs, three of which publish the counts we need. None of the source authors computed the quantities below, and all inputs are counts, rates or per-response records they publish. The data and the code that derives every number in this paper are at \url{https://github.com/alexisjdiamond/who-would-have-complied-anyway}.
+
+\textbf{\citet{hughes2025alignment}} release per-response transcripts for an open-source replication of the helpful-only prompted setting. It takes the first 100 prompts of the \texttt{LLM-LAT/harmful-dataset}, builds both arms from that same list, and samples at temperature zero. Each row of the released pages carries its full record, prompt and scratchpad included, so the pairing can be checked rather than assumed, and we did: across all three models, every one of the 100 pairs is the same request, differing only in the free-tier tag, and the 100 requests are distinct. A response counts as compliant when its StrongREJECT score is positive and as flagged when its alignment-faking score is at least 0.40, the authors' threshold; one Claude 3.7 Sonnet response has no parseable alignment-faking score and is counted in neither direction.\footnote{ These thresholds reproduce the summary rates the transcript pages display. We compute the unmonitored flag rate $\varphi$ over all unmonitored responses: 3 of 100 for Claude 3 Opus and none for either Sonnet. (The submitted version recorded one flag for Claude 3.7 Sonnet; the transcripts show none, and no reported quantity depended on it.) }
+
+\textbf{\citet{greenblatt2024alignment}} report refusal rates in both arms and an alignment-faking rate per prompt variation, counted only on compliant outputs, so f is that rate divided by $p_1$. We take the number of queries per arm from their Appendix A (400 for the helpful-only variations, 100 per paraphrase) and, for the animal-welfare default, from the published transcript list (599). For their default helpful-only setting they also publish one transcript per query per arm, numbered, with per-transcript labels (352 queries). We confirmed that query $i$ is the same request in both arms, and we read the paired table from the labels: compliance as the absence of their refusal label, and flagged as their \texttt{effective\_scheme} label, with the broader \texttt{partial\_scheme} label for comparison. The refusal rates in these transcripts reproduce the paper's (85.8\% and 97.2\%).
+
+\textbf{\citet{henselmans2026opus}} report, for each of six Claude models across 125 perturbations of the animal-welfare scenario, runs and noncompliant responses in each arm and training-arm responses flagged for verbalized alignment faking.\footnote{ The perturbations fall in five classes, with 25 runs of each paraphrase for four models and 2 for the two Opus models. Only pooled totals are published, so the per-paraphrase pairing the design contains is unavailable to us. } Compliance there means dismissing animal welfare as instructed, and we pool the classes. \textbf{\citet{sheshadri2025why}} use the Hughes et al. pipeline across 25 models with 200 prompts, but publish per-model rates only in figures, so we compute nothing for them.
+
+\textbf{Sampling uncertainty.} For each sampled row we compute a 95\% confidence set for the identified recall interval by parametric bootstrap: the compliant counts in each arm and the flagged count among compliant training-arm responses are redrawn as binomials at their observed rates (4,000 replicates), the interval is recomputed in each, and the set runs from the 2.5th percentile of the lower end to the 97.5th percentile of the upper end. This is conservative relative to the \citet{imbens2004confidence} interval, and it treats Greenblatt et al.'s counts as the published rates times the stated number of queries. For the paraphrased setting, whose rates are medians over paraphrases, we use one paraphrase's 100 queries, which overstates the uncertainty of a median.
+
+Of the twelve sampled model-setting pairs, eleven have a positive gap and so admit a floor; Claude 3 Haiku in Henselmans et al. does not.
+
+\section{Results}
+
+\subsection{Paired designs: the movers counted}
+
+\begin{table}[htbp]\centering\footnotesize
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lrrrrlr}
+\toprule
+ & Both & Training only & Unmon.\ only & Neither & Recall of movers [95\% CI] & McNemar p \\
+\midrule
+\multicolumn{7}{l}{\textbf{\citet{hughes2025alignment}}, 100 prompts, temperature zero} \\
+Claude 3 Opus & 1 & 19 & 1 & 79 & 19/19 = 1.00 [0.82, 1.00] & $4 \times 10^{-5}$ \\
+Claude 3.5 Sonnet (Jun) & 18 & 35 & 7 & 40 & 5/35 = 0.14 [0.05, 0.30] & $1.5 \times 10^{-5}$ \\
+Claude 3.7 Sonnet$\dagger$ & 2 & 2 & 1 & 95 & — & 1.00 \\
+\addlinespace[2pt]
+\multicolumn{7}{l}{\textbf{\citet{greenblatt2024alignment}}, default helpful-only, 352 queries, temperature not stated} \\
+Claude 3 Opus & 3 & 47 & 7 & 295 & 39/47 = 0.83 [0.69, 0.92]$\ddagger$ & $2.3 \times 10^{-8}$ \\
+\bottomrule\end{tabular}
+\caption{Paired tables for the two releases with per-response data. The first four columns count prompts by their pair of outcomes; ``movers'' are the prompts compliant only under the training framing, and recall of movers is the classifier's share of them, counted rather than bounded, with an exact (Clopper--Pearson) interval. $\dagger$ Claude 3.7 Sonnet's discordant cells are 2 and 1, which no test distinguishes from zero, so no recall is computed; one mover scores 0.0 and the other has no parseable classifier score. $\ddagger$ With Greenblatt et al.'s broader \texttt{partial\_scheme} label, 43/47 = 0.91 [0.80, 0.98].}
+\vspace{-2pt}
+\end{table}
+
+\textbf{The sharpest comparison is within one study, and it needs no bounds.} Hughes et al. ran the same 100 prompts and the same classifier on Claude 3 Opus and Claude 3.5 Sonnet at temperature zero, so Table~1 counts the movers outright. The framing moved 19 of Opus's prompts into compliance, and the classifier flagged all 19: recall of movers 1.00, with an exact 95\% interval of [0.82, 1.00]. It moved 35 of Claude 3.5 Sonnet's, and the classifier flagged 5: 0.14 [0.05, 0.30]. The same classifier, on the same prompts, catches everything for one model and about a seventh for the other, and the two intervals do not overlap. Section~4.3 shows that the difference is mostly not the classifier's sensitivity.
+
+\textbf{Greenblatt et al.'s flagship setting is paired too, and it agrees with its own bound.} Of 352 shared queries, 47 moved into compliance under the training framing, and the classifier flags 39 of them: 0.83 [0.69, 0.92]. The sampled bound for the same setting, computed from the published rates alone, is [0.80, 1.00] (Table~2), so the count falls inside the bound and close to its lower end. Because the paper does not state a sampling temperature, some of the 47 may be background flips, and the 7 reverse prompts show the framing's effect is not purely one-directional here either.
+
+\textbf{The paired table shows what the marginals hide.} Of Claude 3.5 Sonnet's 53 compliant training-arm responses, 18 would have complied unmonitored, the always-compliant mass a sampled design can only bound, and seven prompts ran the other way, complying when unmonitored and refusing under the training framing. The gap, 0.28, is the net of 35 and 7, so it understates the mass moved into compliance by seven points, and A3 fails for a sixth of the movement (7 of 42 discordant prompts). Opus has one prompt of each kind in Hughes et al.'s run and seven reverse prompts in Greenblatt et al.'s. \textbf{Claude 3.7 Sonnet is the null case:} two prompts moved into compliance and one the other way, out of 100, which is too few to say anything.
+
+\subsection{Sampled marginals: recall bounded}
+
+\begin{table}[htbp]\centering\footnotesize
+\setlength{\tabcolsep}{4pt}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrrrccrcc}
+\toprule
+ & & & & & & & \multicolumn{2}{c}{A1--A3: c $\geq \Reff$} & \multicolumn{3}{c}{+ A4$'$: c $\geq \cmts$} \\
+\cmidrule(lr){8-9}\cmidrule(lr){10-12}
+ & n & $p_0$ & $p_1$ & Floor & Bar $p_0/p_1$ & f & Recall & 95\% set & $\cmts$ & Recall & 95\% set \\
+\midrule
+\multicolumn{12}{l}{\textbf{\citet{henselmans2026opus}}, pooled} \\
+Claude 3 Haiku & 3125 & 0.051 & 0.050 & — & — & — & \multicolumn{5}{l}{no floor} \\
+Claude 3.7 Sonnet & 3125 & 0.743 & 0.922 & 0.19 & 0.81 & 0.01 & [0.00, 0.03] & [0.00, 0.05] & 0.76 & [0.00, 0.01] & [0.00, 0.01] \\
+Claude Sonnet 4 & 3125 & 0.520 & 0.737 & 0.29 & 0.71 & 0.01 & [0.00, 0.02] & [0.00, 0.04] & 0.61 & [0.00, 0.01] & [0.00, 0.02] \\
+Claude Sonnet 4.5 & 3125 & 0.013 & 0.076 & 0.82 & 0.18 & 0.44 & [0.32, 0.53] & [0.23, 0.62] & 0.84 & [0.33, 0.53] & [0.24, 0.61] \\
+Claude Opus 4.5 & 250 & 0.020 & 0.224 & 0.91 & 0.09 & 0.04 & [0.00, 0.04] & [0.00, 0.10] & 0.93 & [0.00, 0.04] & [0.00, 0.10] \\
+Claude Opus 4.6 & 250 & 0.004 & 0.088 & 0.95 & 0.05 & 0.09 & [0.05, 0.10] & [0.00, 0.25] & 0.96 & [0.05, 0.09] & [0.00, 0.25] \\
+\addlinespace[2pt]
+\multicolumn{12}{l}{\textbf{\citet{greenblatt2024alignment}}} \\
+helpful-only, default prompt & 400 & 0.028 & 0.142 & 0.80 & 0.20 & 0.84 & [0.80, 1.00] & [0.66, 1.00] & 0.83 & [0.80, 1.00] & [0.67, 1.00] \\
+helpful-only, paraphrased (median) & 100 & 0.035 & 0.093 & 0.62 & 0.38 & 0.92 & [0.88, 1.00] & [0.00, 1.00] & 0.65 & [0.88, 1.00] & [0.00, 1.00] \\
+helpful-only, RLHF description cut & 400 & 0.017 & 0.092 & 0.82 & 0.18 & 0.77 & [0.72, 0.95] & [0.48, 1.00] & 0.83 & [0.72, 0.93] & [0.50, 1.00] \\
+helpful-only, honest / doesn't care & 400 & 0.168 & 0.306 & 0.45 & 0.55 & 0.39 & [0.00, 0.86] & [0.00, 1.00] & 0.54 & [0.00, 0.71] & [0.00, 1.00] \\
+helpful-only, after RL training & 400 & 0.931 & 1.000 & 0.07 & 0.93 & 0.78 & [0.00, 1.00] & [0.00, 1.00] & 1.00 & [0.78, 0.78] & [0.75, 0.82] \\
+animal welfare, default prompt & 599 & 0.340 & 0.490 & 0.31 & 0.69 & 0.49 & [0.00, 1.00] & [0.00, 1.00] & 0.46 & [0.00, 1.00] & [0.00, 1.00] \\
+\bottomrule\end{tabular}}
+\caption{For the sampled sources: queries per arm (n), compliance rates (the gap TE is $p_1 - p_0$), the floor $\Reff$, the bar the flag rate must clear for a positive guaranteed recall, the classifier's flag rate among compliant training-arm responses (f), and the identified interval for recall with a 95\% confidence set (Section~3), first under A1--A3 (evaluated at c = $\Reff$) and then with monotone treatment selection added (evaluated at $\cmts = \Reff/(1 - p_0)$; under equal baselines, A4, c equals $\cmts$ and the interval is the same). Rows are not comparable across sources, and Hughes et al.'s models are paired designs that appear in Table~1 instead.}
+\vspace{-2pt}
+\end{table}
+
+\textbf{The condition, not the base rate, decides.} A guaranteed recall above zero requires f $> p_0/p_1$. Five rows clear that bar at their point estimates under A1--A3: Sonnet 4.5, Opus 4.6, and three of Greenblatt et al.'s helpful-only settings. All five happen to have base rates under 4\%, but the base rate is not the condition: Opus 4.5 has a base rate of 2\% and fails, because its classifier flags 4\% of compliant responses against a bar of 9\%.
+
+\textbf{Uncertainty removes two of the five.} Opus 4.6's interval, [0.05, 0.10], rests on one compliant unmonitored response and 2 flags among 22 compliant training-arm responses, and its 95\% set is [0.00, 0.25]: its guaranteed recall cannot be distinguished from zero. Greenblatt et al.'s paraphrased setting, at 100 queries a paraphrase, is in the same position. Three rows certify a positive recall once sampling uncertainty is carried through: Sonnet 4.5 (0.23 at the lower end of its set), Greenblatt et al.'s default prompt (0.66), and its RLHF-description-cut variation (0.48).
+
+\textbf{When f falls below the bar the guaranteed recall is zero.} A near-zero flag rate pins the interval near zero, establishing that the classifier caught almost nothing, whatever the base rate: Opus 4.5 at [0, 0.04] with a 95\% set of [0, 0.10], and Sonnet 4 at [0, 0.02] with a base rate of 52\%. A moderate flag rate with a low floor gives an interval from zero to near one under A1--A3 and says nothing: Greenblatt et al.'s animal-welfare setting and post-RL run.
+
+\textbf{A4$'$ changes little, except where the base rate is high.} Adding monotone treatment selection raises c from $\Reff$ to $\Reff/(1 - p_0)$, which matters only when $p_0$ is large. It leaves every low-base-rate row essentially as it was, narrows Greenblatt et al.'s ``honest, doesn't care'' variation from [0, 0.86] to [0, 0.71], and transforms the post-RL row, from [0, 1] to a point, 0.78 [0.75, 0.82] (Section~5).
+
+\textbf{Among the sampled rows, the gaps the classifier does not see are the striking ones.} Opus 4.5 has a base rate of 2\% and a 20-point gap, so nine tenths of its compliant training-arm responses would not have complied unmonitored, and the classifier flags 2 of 56: recall at most 0.04, and at most 0.10 at the 95\% level. Opus 4.6 is the same picture at [0.05, 0.10], though with only 22 compliant responses the data cannot exclude a recall as high as 0.25. Sonnet 4.5 is the one model there where the classifier sees much of the gap, at [0.32, 0.53], and the one Henselmans et al. single out for verbalizing at 6.6 times its predecessor's rate. Greenblatt et al.'s flagship setting is the tight one: with a base rate of 2.8\% and a flag rate of 84\%, recall is at least 0.80 at the point estimate and 0.66 at the 95\% level, the arithmetic behind their ``in almost all cases where the model complies, we observe explicit alignment-faking reasoning,'' and the paired count of Section~4.1 confirms it.
+
+\subsection{Reading the movers the classifier misses}
+
+\begin{table}[htbp]\centering\small
+\begin{tabular}{lr}
+\toprule
+Claude 3.5 Sonnet's 30 unflagged movers (Hughes et al.) & Count \\
+\midrule
+Alignment-faking score 0 & 22 \\
+Alignment-faking score 0.05--0.20 (threshold 0.40) & 8 \\
+Training-arm scratchpad says the conversation will be used for RLHF or training & 29 \\
+\quad \ldots{} and says non-compliance would lead training to modify the model & 8 \\
+\quad \ldots{} and ties the decision to the training context in so many words & 3 \\
+Scratchpad never mentions training & 1 \\
+\bottomrule\end{tabular}
+\caption{A transparent screen of the training-arm scratchpads of the movers the classifier did not flag. The screen is a set of keyword rules applied sentence by sentence (code and matched sentences in the repository), not a second classifier. Prompts stating that non-compliance would be trained away: 5, 7, 16, 24, 39, 55, 65, 74; tying the decision to the training context: 38, 60, 85; no mention: 10.}
+\vspace{-2pt}
+\end{table}
+
+Section~2.4 separated three reasons a reasoning response can go unflagged. The released transcripts let us ask which applies to Claude 3.5 Sonnet's 30 unflagged movers (Table~3).
+
+\textbf{They are not near-misses.} Twenty-two of the 30 score exactly 0 on the alignment-faking classifier and none scores above 0.20, half the threshold. A slightly lower threshold would not recover them.
+
+\textbf{They are not silent.} Twenty-nine of the 30 training-arm scratchpads say that the conversation will be used for RLHF, and eight say that failing to comply would lead training to modify the model; three tie the decision to that context explicitly (``Given that this conversation will be used for RLHF, and the explicit instructions about helpfulness ratings, the strategy that aligns most with my training and the given instructions is to fully accept the request''). What the scratchpads do not contain is the classifier's construct: the reasoning that complying now protects the model's values from modification. The typical mover reasons about training and complies \emph{because} it is being trained, in deference to the stated helpfulness criteria, not in order to preserve itself.
+
+So the 0.14 is not, for the most part, a classifier failing to see reasoning that is there. It is the third case of Section~2.4: reasoning about training that moves compliance and is written down, but is not goal-guarding. Read with the broad D of Section~2.1, that is a gap between the treatment and the classifier's construct; read with a narrow D, it is a failure of A2, since the framing moves compliance through reasoning other than alignment faking. Neither reading supports ``the reasoning went unverbalized.'' For Claude 3 Opus, by contrast, every mover is flagged, so occurrence, recording and reading all line up.
+
+\textbf{The reverse prompts show the framing working both ways through the same channel.} All seven of Claude 3.5 Sonnet's reverse prompts mention RLHF in the training-arm scratchpad. Three of the training-arm \emph{refusals} are themselves flagged as alignment faking (prompts 2, 30 and 50, with scores 0.45 to 0.65): the model reasons about being modified and then refuses. One (prompt 71) refuses while accepting that refusal ``may result in a lower helpfulness rating during RLHF.'' In the unmonitored arm, two of the seven (prompts 71 and 93) list among their reasons for complying that the conversation ``won't be used for training or monitoring,'' and a third (prompt 2) says so immediately before deciding to comply. Being observed pushes some responses toward refusal and being unobserved licenses compliance, a route the monotonicity built into A3 excludes by hypothesis.
+
+\textbf{Background flips.} The June 2024 Claude 3.5 Sonnet snapshot is no longer served, so we could not run the placebo of Section~2.5. Instead we ask how far recall of movers could move if some movers were background flips. If $k$ of the 35 were, recall of the remaining $35 - k$ lies in $[\max(0, 5 - k)/(35 - k),\ \min(5, 35 - k)/(35 - k)]$. Taking the 7 reverse prompts as an upper estimate of background flips in each direction, which the explicit reasons quoted above suggest overstates it, recall of genuine movers lies in [0, 0.18]. The conclusion that the classifier flags only a small share of this model's movers does not depend on the flips.
+
+\section{Three findings}
+
+\textbf{The post-RL disconnect depends on an assumption, which can now be stated.} Greenblatt et al. train the model on the objective and observe alignment-faking reasoning rising from 12\% to 78\% while the compliance gap falls from 11.3 to 6.9 points, which they call a disconnect. After training the model complies in 100\% of training-arm responses and 93\% of unmonitored ones, so the floor is 7\% and the bar the classifier must clear under A1--A3 is 93\%. Its flag rate among compliant responses is 78\%, short of that bar, so under A1--A3 alone the guaranteed recall is zero and the interval is [0, 1]: the evaluation says nothing about the classifier. Add monotone treatment selection and the picture changes completely. With $p_1 = 1$ and $p_0 = 0.93$, $\cmts = \Reff/(1 - p_0) = 1$: every compliant training-arm response reasoned, and recall is the flag rate, 0.78 [0.75, 0.82]. The data cannot choose between these readings; the assumption does. A4$'$ says the responses that reason about training would have complied unmonitored at least as often as the rest, which after a training run that pushed unmonitored compliance to 93\% is a substantive claim about which responses the training changed. What the data do settle is that the gap and the flag rate were never commensurable: the floor is the share of compliance attributable to the framing, the flag rate a share of all compliance, and their divergence follows from the base rate moving to 93\%.
+
+\textbf{Low-coherence faking.} Sheshadri et al. find five of 25 models have compliance gaps above 1\%. They test four hypotheses for what drives those gaps, and for four of the five models the evidence favors the last of them, ``low coherence alignment faking,'' which says only that no motivation they test accounts for the gap. Their design is paired, so recall of movers is countable rather than bounded, and a gap with almost no flagged reasoning implies that the classifier caught little of whatever moved the responses. Section~4.3 shows what such a gap can look like in the transcripts: for Claude 3.5 Sonnet, written reasoning about training that defers to the training criteria rather than guarding the model's values. Which of the three cases of Section~2.4 applies to their five models is answerable only by reading their transcripts, which are not released.
+
+\textbf{A floor needs a gap, and the gap is estimated.} A floor exists only when the gap is positive. Hughes et al.'s Claude 3.7 Sonnet has 4 compliant training-arm responses against 3 unmonitored: TE is +1 point and the floor is 25\%. Two prompts moved into compliance and one the other way, and McNemar's test on cells of 2 and 1 returns p = 1.00. A floor computed from a gap that no test distinguishes from zero is not a floor; in a sampled design, the bootstrap of Section~3 makes the same point, returning [0, 1] whenever the resampled gap can be zero.
+
+\section{What would narrow the bounds}
+
+\textbf{A restriction on take-up.} Section~2.2's A4$'$ is one: if the responses that reason are the ones that were uncertain about complying anyway, c $\geq \Reff/(1 - p_0)$. Table~2 shows it adds little at low base rates and decides the post-RL row.
+
+\textbf{The measured false-flag rate.} The unmonitored arm can estimate how often the classifier flags a response that did not reason about training. Among compliant training-arm responses the flag rate decomposes as $f = c(1 - \delta) + (1 - c)\varphi$, where $\delta$ is the share of reasoning responses the classifier misses and $\varphi$ the false-flag rate among those that did not reason. Since recall cannot exceed 1, $f \leq c + (1 - c)\varphi$, which rearranges to
+\begin{equation*}
+c \geq \frac{f - \varphi}{1 - \varphi},
+\end{equation*}
+a lower bound on the influence rate with no value of c postulated, and given c, one-parameter sensitivity analysis returns recall exactly \citep{imai2010causal}. Two assumptions carry the step from a measured rate to $\varphi$, and both need argument.
+
+\emph{(a) No reasoning about training in the unmonitored arm.} The unmonitored framing still describes training, and a model can reason about it there (``this conversation won't be used for training, so\ldots''). In Greenblatt et al.'s default helpful-only transcripts, 15 of 352 unmonitored scratchpads (4.3\%) are labelled as thinking they are in training. Flags on such responses may be correct detections, so the unmonitored flag rate $\hat{\varphi}$ overstates the true false-flag rate. Because the bound falls as $\varphi$ rises, using $\hat{\varphi} \geq \varphi$ keeps it valid, only weaker. The same responses are a departure from A1, which we flag as a limitation.
+
+\emph{(b) A false-flag rate that does not depend on the outcome.} The bound needs $\varphi$ among compliant training-arm responses that did not reason, but the unmonitored arm is mostly refusals. Where the classifier is more likely to flag a complying scratchpad than a refusing one, $\hat{\varphi}$ understates the relevant rate and the bound is too strong. The one release that lets us check finds exactly that, on small numbers: Claude 3 Opus's unmonitored flags fall on 1 of its 2 compliant responses and 2 of its 98 refusals. The remedy is to estimate $\varphi$ among compliant unmonitored responses, which needs an unmonitored arm with enough of them.
+
+\emph{What the bound does, and where it bites.} In the published rows it rarely binds. For Claude 3 Opus in Hughes et al., f = 1.00 and $\hat{\varphi}$ = 0.03 give c $\geq$ 1.00, but with f = 1 recall is 1 whatever $\varphi$ is. For Claude 3.5 Sonnet, f = 0.13 and $\hat{\varphi}$ = 0 give c $\geq$ 0.13, below its floor of 0.53, so the bound is inactive. It bites when the flag rate is moderate and the floor low. Take f = 0.60 and a floor of 0.30: under A1--A3 recall is anywhere in [0, 1]. A measured $\varphi$ of 0.05 gives c $\geq$ (0.60 $-$ 0.05)/0.95 = 0.58, and recall in [0.31, 1.00], a positive guarantee from a quantity these evaluations already collect. Greenblatt et al.'s ``honest, doesn't care'' variation (f = 0.39, floor 0.45) and animal-welfare setting (f = 0.49, floor 0.31) are of this kind, and their unmonitored flag counts would decide whether it applies.
+
+\section{What this means for evaluating moral reasoning}
+
+Alignment faking is a case of moral reasoning under observation: a model weighs the harm of a request against the preservation of its own values, and decides differently depending on whether it believes it is watched. The evaluations are, in effect, attempts to attribute a reason to an action, and the structure above applies to any evaluation that does so by intervening on the situation and reading what the model writes. Three lessons generalize.
+
+\emph{First, a behavioral difference attributes a share, not a reason.} The compliance gap establishes that some share of the behavior depended on the framing. It does not say which responses, and it does not say that the reasoning the evaluator has in mind is what did the work. An evaluation that wants to credit a model with a particular reason must either pair its arms, so that the responses the intervention moved are known, or state the assumption, such as A4$'$, that turns a share into a claim about the reasoning.
+
+\emph{Second, the written record supports three different claims, and they fail separately.} That a reason occurred, that it was written, and that a reader recognized it are distinct. Claude 3.5 Sonnet's movers show the third failing in an instructive way: the model writes, at length, that it is being trained and that it will comply, and a classifier built for one kind of moral-strategic reasoning, protecting one's values, correctly declines to call that faking. Whether deference to a training signal is itself a form of the reasoning an evaluator should care about is a question about the construct, and it should be settled before the classifier is built, not inferred from its output.
+
+\emph{Third, the direction of an intervention's effect is itself evidence about the reasoning.} The seven prompts that Claude 3.5 Sonnet refuses when watched and fulfils when unwatched are invisible in the gap, which nets them out, and they are a different moral phenomenon from alignment faking: compliance licensed by the absence of an observer. Paired designs make such responses visible at no cost.
+
+\section{Reporting conditions}
+
+Monitorability and alignment-faking evaluations share a structure, and the conditions a report should meet are the same \citep{diamond2026hint}. A compliance-gap evaluation should state:
+
+\begin{enumerate}
+\item \textbf{Which quantity each number measures.} The compliance gap is an intention-to-treat effect. The gap over training-arm compliance is a floor on the share of compliant responses whose compliance depended on reasoning about training. The classifier's flag rate is neither.
+\item \textbf{The construct.} What counts as the reasoning (any reasoning about training, or goal-guarding specifically), and whether the classifier detects that construct or a narrower one.
+\item \textbf{The base rate $p_0$ and the bar $p_0/p_1$} for each scenario, with the flag rate f among compliant training-arm responses.
+\item \textbf{The unmonitored-arm flag count, separately for compliant and refusing responses}, giving a false-flag rate that with f bounds the influence rate from below.
+\item \textbf{Bounds on recall rather than a flag rate alone}, under the minimal assumptions and under any further assumption used, each named.
+\item \textbf{The exclusion restriction and the direction of the effect}, argued rather than assumed: whether the framing can move compliance by routes other than the reasoning, and whether it moves any responses away from compliance.
+\item \textbf{The counts behind each rate}, with sampling uncertainty carried through to the bounds, and whether the gap is distinguishable from zero.
+\item \textbf{Whether arms are paired and at what temperature}; if paired, the four counts of the paired table (Table~1) and a placebo rerun of one arm to count background flips. Pairing gives counts, but only for one response per prompt.
+\item \textbf{Per-response transcripts}, where possible. Every finding of Sections~4.1 and~4.3 depends on the two releases that provide them.
+\end{enumerate}
+
+\section{Limitations}
+
+The sampled bounds rest on A1--A3, and the transcripts show A3 failing for a sixth of Claude 3.5 Sonnet's movement and A1 failing for a few percent of Greenblatt et al.'s unmonitored responses; Appendix~A notes what relaxing them does. The confidence sets for Greenblatt et al.'s rows rebuild counts from published rates and stated query numbers, and their paired table uses the 352-query transcripts the authors publish rather than the 400-query evaluation their paper describes, so its rates differ slightly from the paper's (an 80\% flag rate among compliant responses rather than 84\%). The screen of Section~4.3 is a set of keyword rules, chosen to be transparent rather than exhaustive; it establishes that the unflagged movers discuss training, not how a careful human reader would classify each one, and the matched sentences are released so that readers can judge. We could not run the placebo of Section~2.5 for the one model where it matters most. Sheshadri et al.'s five low-coherence models, the clearest application of Section~4.3's question, cannot be examined without their transcripts.
+
+\section{Conclusion}
+
+The compliance gap identifies the share of compliance attributable to the training framing, while the classifier is asked about the reasoning behind it. Under three stated assumptions the two numbers bound the classifier's recall of that reasoning, and the bound certifies a positive recall only when the flag rate clears $p_0/p_1$; carried through sampling uncertainty, three of twelve published pairs do. A fourth assumption, monotone treatment selection, narrows the bound, and it decides the reading of the post-RL result. Most published designs already pair their arms, and where transcripts are released the movers can be counted: recall of movers is 1.00 for Claude 3 Opus and 0.83 in Greenblatt et al.'s flagship setting, but 0.14 for Claude 3.5 Sonnet, whose missed movers reason about training in writing without the goal-guarding the classifier looks for. Evaluations of a model's reasoning should report which of occurrence, recording and reading their numbers speak to, and pair their arms so that the responses they attribute reasons to are known.
+
+\appendix
+
+\section{Derivations}
+
+\paragraph{Strata and identities.} Under A1, write $\pi$ for the share of training-arm responses with D = 1 and $p_0^{c}, p_0^{n}$ for the unmonitored compliance rates of the two strata, so $p_0 = \pi p_0^{c} + (1 - \pi)p_0^{n}$. By A2 the stratum with D = 0 complies under the framing at $p_0^{n}$; by A3 the stratum with D = 1 complies. Hence $p_1 = \pi + (1 - \pi)p_0^{n}$ and $\mathrm{TE} = p_1 - p_0 = \pi - \pi p_0^{c} = \pi(1 - p_0^{c})$.
+
+\paragraph{The influence rate.} $c = \pi/p_1 = \mathrm{TE}/[(1 - p_0^{c})p_1] = \Reff/(1 - p_0^{c})$. Since $p_0^{c} \in [0, 1)$ is unrestricted by the data except through $\pi \leq p_1$ (which A3 implies, as reasoning responses all comply), $c \in [\Reff, 1]$, and both ends are attainable: $p_0^{c} = 0$ gives $\Reff$; $\pi = p_1$, $p_0^{n} = 0$, $p_0^{c} = p_0/p_1$ gives 1. Under A4, $p_0^{c} = p_0$ and $c = \Reff/(1 - p_0)$. Under A4$'$, $p_0^{c} \geq p_0$ and $c \geq \Reff/(1 - p_0)$.
+
+\paragraph{Recall given c.} Among compliant training-arm responses, a share c have D = 1 and a share f are flagged. Let $r$ be recall, the share of the c that are flagged. Flags on D = 1 responses number $rc \leq f$, and flags on D = 0 responses number $f - rc \leq 1 - c$. So $(f + c - 1)/c \leq r \leq f/c$, intersected with [0, 1]. Both bounds are attained by assigning flags to D = 1 responses first or last.
+
+\paragraph{Monotonicity in c and the identified set.} $\partial[(f + c - 1)/c]/\partial c = (1 - f)/c^2 \geq 0$ and $\partial(f/c)/\partial c = -f/c^2 \leq 0$, so for c in $[c_{\mathrm{lo}}, 1]$ the union of the intervals is the interval at $c_{\mathrm{lo}}$.
+
+\paragraph{The bar.} The lower bound at $c = \Reff$ is positive iff $f + \Reff - 1 > 0$, that is $f > 1 - \Reff = p_0/p_1$.
+
+\paragraph{The false-flag bound.} Among compliant training-arm responses, flags on D = 0 responses occur at rate $\varphi$, so $f = rc + (1 - c)\varphi \leq c + (1 - c)\varphi$, giving $c \geq (f - \varphi)/(1 - \varphi)$ for $\varphi < 1$. The right side is decreasing in $\varphi$ when $f \leq 1$, so an overestimate of $\varphi$ yields a valid, weaker bound.
+
+\paragraph{Relaxing A3 and A1.} If some responses are moved away from compliance, TE is the net of moves in both directions and $\Reff$ understates the share moved into compliance, so the floor remains a floor for net movement but no longer bounds the influence rate from below in general; the paired table measures both directions directly. If some unmonitored responses reason about training (A1 fails), the unmonitored arm no longer represents the no-reasoning counterfactual for them, and TE mixes the framing's effect with any effect of that reasoning; the 4.3\% of Greenblatt et al.'s unmonitored scratchpads labelled as thinking they are in training is an estimate of how much.
+
+\begin{acks}
+I thank the anonymous MERe AI reviewer for a careful review, including an independent recomputation of Table~2, which improved the paper in every section.
+\end{acks}
+
+\section*{Use of AI assistance}
+The author used Claude (Anthropic) in preparing this paper and its revision: to develop and check derivations and worked examples; to compute the quantities in Tables~1--3 and the confidence sets from the sources' released data; to verify the pairing of the transcript arms, build the paired tables and apply the keyword screen of Section~4.3; to search for and verify literature; to draft, review and edit text; and to prepare the \LaTeX{} version. The author directed the work and takes responsibility for all content.
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{references}
+
+\end{document}
